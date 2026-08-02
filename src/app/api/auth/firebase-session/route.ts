@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: isDb
-          ? "Database is not configured. Set DATABASE_URL and DIRECT_URL (postgresql://...) in Vercel env vars and redeploy."
+          ? "Database unavailable. Set DATABASE_URL=file:./dev.db and run: npx prisma migrate deploy"
           : message,
       },
       { status: 500 },
