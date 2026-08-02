@@ -10,9 +10,12 @@ export async function createAppSession(user: User, name?: string) {
       ...(name ? { name } : {}),
     }),
   });
-  const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({} as { error?: string }));
   if (!res.ok) {
-    throw new Error(data.error || "Could not create app session");
+    throw new Error(
+      (typeof data.error === "string" && data.error) ||
+        `Could not create app session (HTTP ${res.status})`,
+    );
   }
   return data;
 }

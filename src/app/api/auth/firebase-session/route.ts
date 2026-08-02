@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: isDb
-          ? "Database unavailable. Set DATABASE_URL=file:./dev.db and run: npx prisma migrate deploy"
+          ? "Database not ready. In Vercel: Storage → create Postgres, set DIRECT_URL from DATABASE_URL_UNPOOLED, add AUTH_SECRET + Firebase env vars, then Redeploy."
           : message,
       },
       { status: 500 },
