@@ -1,45 +1,41 @@
 # Deploying MedicalPrep on Vercel
 
-SQLite (`file:./dev.db`) does **not** work on Vercel. Use hosted Postgres (Neon is free-tier friendly).
+This app uses **PostgreSQL** (via Prisma). Set a hosted Postgres connection string in Vercel — local SQLite is not supported.
 
-## 1. Create a Neon database
+## Required environment variables
 
-1. In the [Vercel dashboard](https://vercel.com) → your project → **Storage** → create **Neon Postgres**,  
-   **or** create a project at [console.neon.tech](https://console.neon.tech).
-2. Copy both connection strings:
-   - **Pooled** → `DATABASE_URL`
-   - **Direct** (non-pooled) → `DIRECT_URL`  
-   If you only have one string, set both vars to the same value.
-
-## 2. Environment variables
-
-**Settings → Environment Variables** (Production + Preview):
+**Vercel → Project → Settings → Environment Variables** (Production + Preview):
 
 | Name | Notes |
 | --- | --- |
-| `DATABASE_URL` | Neon pooled Postgres URL |
-| `DIRECT_URL` | Neon direct Postgres URL (migrations) |
-| `AUTH_SECRET` | Long random string |
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | From Firebase console |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | |
-| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | |
-| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | |
-| `NEXT_PUBLIC_FIREBASE_APP_ID` | |
-| `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | optional |
+| `DATABASE_URL` | Postgres URL (pooled URL if your host offers one) |
+| `DIRECT_URL` | Direct URL for migrations. Same as `DATABASE_URL` if you only have one. |
+| `AUTH_SECRET` | Long random string (`openssl rand -hex 32`) |
+| `NEXT_PUBLIC_FIREBASE_*` | Same values as local `.env.local` |
 
-## 3. Redeploy
+Push the latest code, then **Redeploy**. The build runs `prisma migrate deploy`.
 
-After saving env vars, **Redeploy** the latest deployment. The build runs `prisma migrate deploy` to create tables.
+## Supabase (free Postgres)
 
-## 4. Seed drug catalog (optional)
+1. [supabase.com](https://supabase.com) → **New project** → set a DB password.
+2. **Project Settings → Database → Connection string → URI**.
+3. Replace `[YOUR-PASSWORD]` in the URI with your password.
+4. Set that URI as both `DATABASE_URL` and `DIRECT_URL` on Vercel (plus Firebase + `AUTH_SECRET`).
+5. Redeploy.
 
-From your machine (with `DATABASE_URL` / `DIRECT_URL` pointing at Neon):
+## Railway / Render Postgres
+
+Create a Postgres service, copy the URL into `DATABASE_URL` and `DIRECT_URL`, redeploy.
+
+## Seed data (optional)
+
+With Postgres URLs in local `.env`:
 
 ```bash
+npx prisma migrate deploy
 npm run db:seed
 ```
 
 ## Firebase API key note
 
-The server verifies ID tokens with the web API key. In Google Cloud → APIs & Services → Credentials, do not restrict that key to HTTP referrers only (or use a key that allows the Identity Toolkit API from server IPs).
+Server session creation uses the web API key against Identity Toolkit. Don’t restrict that key to HTTP referrers only.

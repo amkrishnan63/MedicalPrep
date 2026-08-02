@@ -5,7 +5,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  // Neon/Vercel pooler needs a direct URL for migrations (prisma migrate deploy).
+  // Pooled hosts need a direct URL for migrations (prisma migrate deploy).
   directUrl = env("DIRECT_URL")
 }
 
