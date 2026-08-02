@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: isDb
-          ? "Database is not configured. Set DATABASE_URL and DIRECT_URL to your hosted Postgres and redeploy."
+          ? "Database is not configured. Set DATABASE_URL and DIRECT_URL (postgresql://...) in Vercel env vars and redeploy."
           : message,
       },
       { status: 500 },

@@ -1,41 +1,34 @@
-# Deploying MedicalPrep on Vercel
+# Deploy to Vercel
 
-This app uses **PostgreSQL** (via Prisma). Set a hosted Postgres connection string in Vercel — local SQLite is not supported.
+## 1. Env vars (Vercel → Settings → Environment Variables)
 
-## Required environment variables
+Add for **Production** and **Preview**:
 
-**Vercel → Project → Settings → Environment Variables** (Production + Preview):
-
-| Name | Notes |
+| Variable | Where to get it |
 | --- | --- |
-| `DATABASE_URL` | Postgres URL (pooled URL if your host offers one) |
-| `DIRECT_URL` | Direct URL for migrations. Same as `DATABASE_URL` if you only have one. |
-| `AUTH_SECRET` | Long random string (`openssl rand -hex 32`) |
-| `NEXT_PUBLIC_FIREBASE_*` | Same values as local `.env.local` |
+| `DATABASE_URL` | Postgres URI (`postgresql://...`) from your DB host |
+| `DIRECT_URL` | Same URI, or the “direct” URI if two are shown |
+| `AUTH_SECRET` | `openssl rand -hex 32` |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase console → Project settings → Your apps |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | |
+| `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | optional |
 
-Push the latest code, then **Redeploy**. The build runs `prisma migrate deploy`.
+**Supabase:** open the project → top **Connect** → **ORMs / Prisma** or **Connection string → URI**.  
+Copy the `postgresql://...` string (not `NEXT_PUBLIC_SUPABASE_*`).
 
-## Supabase (free Postgres)
+## 2. Deploy
 
-1. [supabase.com](https://supabase.com) → **New project** → set a DB password.
-2. **Project Settings → Database → Connection string → URI**.
-3. Replace `[YOUR-PASSWORD]` in the URI with your password.
-4. Set that URI as both `DATABASE_URL` and `DIRECT_URL` on Vercel (plus Firebase + `AUTH_SECRET`).
-5. Redeploy.
+Push to `main` (or Redeploy). Build runs `prisma migrate deploy` then `next build`.
 
-## Railway / Render Postgres
+## 3. Seed (optional, from your laptop)
 
-Create a Postgres service, copy the URL into `DATABASE_URL` and `DIRECT_URL`, redeploy.
-
-## Seed data (optional)
-
-With Postgres URLs in local `.env`:
+Put the same `DATABASE_URL` / `DIRECT_URL` in local `.env`, then:
 
 ```bash
 npx prisma migrate deploy
 npm run db:seed
 ```
-
-## Firebase API key note
-
-Server session creation uses the web API key against Identity Toolkit. Don’t restrict that key to HTTP referrers only.

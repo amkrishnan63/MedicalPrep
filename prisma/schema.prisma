@@ -5,7 +5,6 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  // Pooled hosts need a direct URL for migrations (prisma migrate deploy).
   directUrl = env("DIRECT_URL")
 }
 
