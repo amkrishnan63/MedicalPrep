@@ -16,7 +16,7 @@ const firebaseConfig = {
 function assertConfig() {
   if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
     throw new Error(
-      "Missing Firebase env vars. Copy values into web/.env.local (NEXT_PUBLIC_FIREBASE_*).",
+      "Missing Firebase env vars. Set NEXT_PUBLIC_FIREBASE_* locally in .env.local, or in Vercel → Settings → Environment Variables, then redeploy.",
     );
   }
 }

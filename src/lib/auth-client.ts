@@ -43,7 +43,7 @@ export function firebaseErrorMessage(err: unknown, fallback = "Something went wr
   }
 
   if (message.includes("Missing Firebase env")) {
-    return "Firebase is not configured. Check web/.env.local and restart the dev server.";
+    return "Firebase is not configured. Add NEXT_PUBLIC_FIREBASE_* env vars (Vercel → Settings → Environment Variables) and redeploy.";
   }
 
   return message.replace(/^Firebase:\s*/i, "").replace(/\s*\(.*\)\s*$/, "") || fallback;
