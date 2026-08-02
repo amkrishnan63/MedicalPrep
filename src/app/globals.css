@@ -1,0 +1,239 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #e8eef2;
+  --bg-elevated: #f7fafb;
+  --ink: #102a36;
+  --ink-muted: #4a6672;
+  --brand: #0b4f6c;
+  --brand-deep: #07384d;
+  --accent: #1f7a6a;
+  --serious: #9b2c2c;
+  --serious-bg: #fde8e8;
+  --caution: #9a6700;
+  --caution-bg: #fff6db;
+  --info: #1a5f7a;
+  --info-bg: #e6f3f8;
+  --line: #c5d4dc;
+  --shadow-soft: 0 1px 0 rgba(16, 42, 54, 0.04);
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-figtree);
+  --font-display: var(--font-fraunces);
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(31, 122, 106, 0.12), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(11, 79, 108, 0.1), transparent 50%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--font-figtree), system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+.brand-font {
+  font-family: var(--font-fraunces), Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 3rem;
+}
+
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  background: var(--brand);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--brand-deep);
+}
+
+.btn-secondary {
+  background: white;
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.btn-secondary:hover {
+  border-color: var(--brand);
+}
+
+.btn-danger {
+  background: var(--serious);
+  color: white;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+}
+
+.textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  margin-bottom: 0.35rem;
+}
+
+.muted {
+  color: var(--ink-muted);
+}
+
+.severity-serious {
+  background: var(--serious-bg);
+  border-left: 4px solid var(--serious);
+  color: var(--ink);
+}
+
+.severity-caution {
+  background: var(--caution-bg);
+  border-left: 4px solid var(--caution);
+}
+
+.severity-info {
+  background: var(--info-bg);
+  border-left: 4px solid var(--info);
+}
+
+.nav-link {
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  color: var(--ink-muted);
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  background: rgba(11, 79, 108, 0.08);
+  color: var(--brand);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.badge-serious {
+  background: var(--serious-bg);
+  color: var(--serious);
+}
+
+.badge-caution {
+  background: var(--caution-bg);
+  color: var(--caution);
+}
+
+.badge-info {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.disclaimer {
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+  margin-top: 1rem;
+}
+
+.grid-2 {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 800px) {
+  .grid-2 {
+    grid-template-columns: 1.2fr 1fr;
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.65rem 0.4rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.table th {
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+  font-weight: 700;
+}

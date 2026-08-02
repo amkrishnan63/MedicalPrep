@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String   @default("") // unused when signed in via Firebase
+  firebaseUid  String?  @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ownedProfiles Profile[]    @relation("ProfileOwner")
+  memberships   Membership[]
+  sessions      Session[]
+  auditEvents   AuditEvent[]
+  agentRuns     AgentRun[]
+  doseEvents    DoseEvent[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Profile {
+  id                 String   @id @default(cuid())
+  displayName        String
+  timezone           String   @default("America/Los_Angeles")
+  birthYear          Int?
+  otcPromptCompleted Boolean  @default(false)
+  ownerId            String
+  owner              User     @relation("ProfileOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  memberships      Membership[]
+  medications      Medication[]
+  allergies        Allergy[]
+  alerts           InteractionAlert[]
+  doseEvents       DoseEvent[]
+  proposals        MedChangeProposal[]
+  agentRuns        AgentRun[]
+  auditEvents      AuditEvent[]
+  studyEnrollment  StudyEnrollment?
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   // OWNER | CAREGIVER | VIEWER
+  createdAt DateTime @default(now())
+
+  @@unique([profileId, userId])
+}
+
+model Allergy {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  substance String
+  reaction  String?
+  severity  String   @default("moderate") // mild | moderate | severe
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+}
+
+model Medication {
+  id              String    @id @default(cuid())
+  profileId       String
+  profile         Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  displayName     String
+  genericName     String?
+  rxnorm          String?
+  drugKey         String?
+  strength        String?
+  form            String?
+  dose            String?
+  route           String?   @default("oral")
+  frequency       String?
+  scheduleTimes   String    @default("[]") // JSON array of "HH:mm"
+  prn             Boolean   @default(false)
+  indication      String?
+  prescriber      String?
+  pharmacy        String?
+  status          String    @default("active") // active | stopped | inactive
+  source          String    @default("manual") // manual | ocr | agent_intake | import
+  needsReview     Boolean   @default(false)
+  startAt         DateTime?
+  stopAt          DateTime?
+  lastConfirmedAt DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  doseEvents DoseEvent[]
+}
+
+model InteractionAlert {
+  id            String    @id @default(cuid())
+  profileId     String
+  profile       Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  severity      String // Serious | Caution | Informational
+  title         String
+  whatText      String
+  soWhatText    String
+  nowWhatText   String
+  memberKeys    String // JSON array of drugKeys / allergy keys
+  vendorCode    String?
+  status        String    @default("open") // open | acknowledged | dismissed
+  ackedAt       DateTime?
+  dismissReason String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model DoseEvent {
+  id           String     @id @default(cuid())
+  profileId    String
+  profile      Profile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  medicationId String
+  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  scheduledAt  DateTime
+  status       String // taken | skipped | late | snoozed | pending
+  actorUserId  String?
+  actor        User?      @relation(fields: [actorUserId], references: [id])
+  note         String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model MedChangeProposal {
+  id            String    @id @default(cuid())
+  profileId     String
+  profile       Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  agentRunId    String?
+  agentRun      AgentRun? @relation(fields: [agentRunId], references: [id])
+  opsJson       String // JSON array of ops
+  status        String    @default("pending") // pending | accepted | rejected | partial
+  confirmToken  String    @unique @default(cuid())
+  createdAt     DateTime  @default(now())
+  resolvedAt    DateTime?
+}
+
+model AgentRun {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agentType String // Intake | Explain | Prepare | Watch
+  inputText String?
+  outputJson String?
+  toolCalls String  @default("[]")
+  model     String  @default("rule-based-v1")
+  createdAt DateTime @default(now())
+
+  proposals MedChangeProposal[]
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  profileId String?
+  profile   Profile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  entityRef String?
+  payload   String?
+  createdAt DateTime @default(now())
+}
+
+model StudyEnrollment {
+  id            String  @id @default(cuid())
+  profileId     String  @unique
+  profile       Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  studyId       String
+  siteId        String?
+  participantId String?
+  rulesetId     String?
+  status        String  @default("active")
+}
+
+model DrugCatalog {
+  id          String @id @default(cuid())
+  drugKey     String @unique
+  displayName String
+  genericName String
+  rxnorm      String?
+  drugClass   String?
+  isOtc       Boolean @default(false)
+  ntiFlag     Boolean @default(false)
+}
+
+model InteractionRule {
+  id          String @id @default(cuid())
+  leftKey     String
+  rightKey    String
+  severity    String
+  title       String
+  whatText    String
+  soWhatText  String
+  nowWhatText String
+  vendorCode  String?
+}
