@@ -28,6 +28,8 @@ Vercel will add env vars such as `DATABASE_URL` and `DATABASE_URL_UNPOOLED`.
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | From `.env.local` |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | From `.env.local` |
 | `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | From `.env.local` |
+| `OPENAI_API_KEY` | OpenAI API key (Assistant agents) |
+| `OPENAI_MODEL` | Optional; defaults to `gpt-4o-mini` |
 
 ### 3. Redeploy
 **Deployments → … on latest → Redeploy**  

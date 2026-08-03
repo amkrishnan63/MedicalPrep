@@ -42,7 +42,7 @@ export async function POST(
     if (!inputText) {
       return NextResponse.json({ error: "inputText required for Intake" }, { status: 400 });
     }
-    const { ops, toolCalls } = await runIntakeAgent(inputText, profileId);
+    const { ops, toolCalls, model } = await runIntakeAgent(inputText, profileId);
     const run = await prisma.agentRun.create({
       data: {
         profileId,
@@ -51,7 +51,7 @@ export async function POST(
         inputText,
         outputJson: JSON.stringify({ ops }),
         toolCalls: JSON.stringify(toolCalls),
-        model: "rule-based-v1",
+        model,
       },
     });
     const proposal = await prisma.medChangeProposal.create({
@@ -91,7 +91,7 @@ export async function POST(
         inputText: parsed.data.inputText,
         outputJson: JSON.stringify(result),
         toolCalls: JSON.stringify(result.toolCalls),
-        model: "rule-based-v1",
+        model: result.model || "rule-based-v1",
       },
     });
     await audit({
@@ -113,7 +113,7 @@ export async function POST(
       inputText: parsed.data.appointmentHint,
       outputJson: JSON.stringify(result.packet),
       toolCalls: JSON.stringify(result.toolCalls),
-      model: "rule-based-v1",
+      model: result.model || "rule-based-v1",
     },
   });
   await audit({

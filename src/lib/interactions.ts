@@ -32,7 +32,7 @@ export async function findDrugByQuery(query: string) {
   );
 }
 
-export async function searchDrugs(query: string, limit = 12) {
+export async function searchDrugs(query: string, limit = 200) {
   const q = query.trim().toLowerCase();
   if (!q) {
     return prisma.drugCatalog.findMany({ take: limit, orderBy: { displayName: "asc" } });
@@ -43,7 +43,8 @@ export async function searchDrugs(query: string, limit = 12) {
       (d) =>
         d.displayName.toLowerCase().includes(q) ||
         d.genericName.toLowerCase().includes(q) ||
-        d.drugKey.includes(q),
+        d.drugKey.includes(q) ||
+        (d.drugClass?.toLowerCase().includes(q) ?? false),
     )
     .slice(0, limit);
 }

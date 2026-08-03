@@ -54,81 +54,108 @@ export default function AssistantPage() {
   }
 
   async function runIntake() {
-    if (!profileId) return;
+    if (!profileId || loading) return;
     setLoading(true);
     setMessage("");
-    const res = await fetch(`/api/profiles/${profileId}/agents`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent: "Intake", inputText: input }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) {
-      setMessage(data.error || "Intake failed");
-      return;
+    try {
+      const res = await fetch(`/api/profiles/${profileId}/agents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent: "Intake", inputText: input }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(data.error || "Intake failed");
+        return;
+      }
+      setOps(data.ops || []);
+      setProposalId(data.proposalId);
+      setConfirmToken(data.confirmToken);
+      setDecisions(
+        (data.ops || []).map((_: MedOp, index: number) => ({
+          index,
+          decision: "accept" as const,
+        })),
+      );
+      setMessage(data.message);
+    } catch {
+      setMessage("Network error — try again");
+    } finally {
+      setLoading(false);
     }
-    setOps(data.ops || []);
-    setProposalId(data.proposalId);
-    setConfirmToken(data.confirmToken);
-    setDecisions((data.ops || []).map((_: MedOp, index: number) => ({ index, decision: "accept" as const })));
-    setMessage(data.message);
   }
 
   async function commitIntake() {
-    if (!profileId) return;
+    if (!profileId || loading || !confirmToken) return;
     setLoading(true);
-    const res = await fetch(`/api/profiles/${profileId}/agents`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ proposalId, confirmToken, decisions }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) {
-      setMessage(data.error || "Commit failed");
-      return;
+    try {
+      const res = await fetch(`/api/profiles/${profileId}/agents`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proposalId, confirmToken, decisions }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(data.error || "Commit failed");
+        return;
+      }
+      setMessage(`${data.message} Accepted ${data.accepted}, rejected ${data.rejected}.`);
+      setOps([]);
+      setProposalId("");
+      setConfirmToken("");
+    } catch {
+      setMessage("Network error — try again");
+    } finally {
+      setLoading(false);
     }
-    setMessage(`${data.message} Accepted ${data.accepted}, rejected ${data.rejected}.`);
-    setOps([]);
-    setProposalId("");
-    setConfirmToken("");
   }
 
   async function runExplain() {
-    if (!profileId) return;
+    if (!profileId || loading) return;
     setLoading(true);
     setExplain(null);
-    const res = await fetch(`/api/profiles/${profileId}/agents`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent: "Explain", inputText: question }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) {
-      setMessage(data.error || "Explain failed");
-      return;
+    setMessage("");
+    try {
+      const res = await fetch(`/api/profiles/${profileId}/agents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent: "Explain", inputText: question }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(data.error || "Explain failed");
+        return;
+      }
+      setExplain(data);
+    } catch {
+      setMessage("Network error — try again");
+    } finally {
+      setLoading(false);
     }
-    setExplain(data);
   }
 
   async function runPrepare() {
-    if (!profileId) return;
+    if (!profileId || loading) return;
     setLoading(true);
     setPacket(null);
-    const res = await fetch(`/api/profiles/${profileId}/agents`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent: "Prepare", appointmentHint: hint }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) {
-      setMessage(data.error || "Prepare failed");
-      return;
+    setMessage("");
+    try {
+      const res = await fetch(`/api/profiles/${profileId}/agents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent: "Prepare", appointmentHint: hint }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(data.error || "Prepare failed");
+        return;
+      }
+      setPacket(data.packet);
+    } catch {
+      setMessage("Network error — try again");
+    } finally {
+      setLoading(false);
     }
-    setPacket(data.packet);
   }
 
   if (status === "loading") return <div className="card muted">Loading…</div>;
@@ -228,15 +255,10 @@ export default function AssistantPage() {
             </button>
           </div>
           <div className="card stack">
-            <h2 style={{ margin: 0, fontSize: "1.15rem" }}>Grounded answer</h2>
+            <h2 style={{ margin: 0, fontSize: "1.15rem" }}>AI answer</h2>
             {explain ? (
               <>
-                <p>{explain.narrative}</p>
-                {explain.refusedInvention && (
-                  <p className="severity-info" style={{ padding: "0.75rem", borderRadius: 8 }}>
-                    Agent refused to invent an interaction not present in the safety engine.
-                  </p>
-                )}
+                <p style={{ whiteSpace: "pre-wrap" }}>{explain.narrative}</p>
                 {(explain.alerts || []).map((a) => (
                   <div key={a.alertId} className="card">
                     <strong>

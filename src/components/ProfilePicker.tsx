@@ -25,39 +25,48 @@ export function ProfilePicker({
 
   async function createProfile(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || loading) return;
     setLoading(true);
     setError("");
-    const res = await fetch("/api/profiles", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ displayName: name.trim() }),
-    });
-    setLoading(false);
-    if (!res.ok) {
+    try {
+      const res = await fetch("/api/profiles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: name.trim() }),
+      });
       const data = await res.json().catch(() => ({}));
-      setError(data.error || "Could not create profile");
-      return;
+      if (!res.ok) {
+        setError(data.error || "Could not create profile");
+        return;
+      }
+      setName("");
+      router.push(`/app?profileId=${data.profile.id}`);
+      router.refresh();
+    } catch {
+      setError("Network error — try again");
+    } finally {
+      setLoading(false);
     }
-    const data = await res.json();
-    setName("");
-    router.push(`/app?profileId=${data.profile.id}`);
-    router.refresh();
   }
 
   async function createDemo() {
+    if (loading) return;
     setLoading(true);
     setError("");
-    const res = await fetch("/api/profiles/demo", { method: "POST" });
-    setLoading(false);
-    if (!res.ok) {
+    try {
+      const res = await fetch("/api/profiles/demo", { method: "POST" });
       const data = await res.json().catch(() => ({}));
-      setError(data.error || "Could not create demo profile");
-      return;
+      if (!res.ok) {
+        setError(data.error || "Could not create demo profile");
+        return;
+      }
+      router.push(`/app?profileId=${data.profile.id}`);
+      router.refresh();
+    } catch {
+      setError("Network error — try again");
+    } finally {
+      setLoading(false);
     }
-    const data = await res.json();
-    router.push(`/app?profileId=${data.profile.id}`);
-    router.refresh();
   }
 
   return (

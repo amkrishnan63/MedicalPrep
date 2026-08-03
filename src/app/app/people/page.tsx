@@ -14,6 +14,7 @@ export default function PeoplePage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [role, setRole] = useState<"CAREGIVER" | "VIEWER">("CAREGIVER");
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   async function load() {
     if (!profileId) return;
@@ -26,28 +27,36 @@ export default function PeoplePage() {
 
   useEffect(() => {
     if (status !== "ready" || !profileId) return;
-    load();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileId, status]);
 
   async function invite(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!profileId) return;
+    if (!profileId || submitting) return;
+    const formEl = e.currentTarget;
+    const email = String(new FormData(formEl).get("email") || "").trim();
     setMessage("");
-    const form = new FormData(e.currentTarget);
-    const res = await fetch(`/api/profiles/${profileId}/share`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: form.get("email"), role }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setMessage(data.error || "Invite failed");
-      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/profiles/${profileId}/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, role }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(data.error || "Invite failed");
+        return;
+      }
+      setMessage("Invite granted.");
+      formEl.reset();
+      await load();
+    } catch {
+      setMessage("Network error — try again");
+    } finally {
+      setSubmitting(false);
     }
-    setMessage("Invite granted.");
-    e.currentTarget.reset();
-    await load();
   }
 
   if (status === "loading") return <div className="card muted">Loading…</div>;
@@ -82,8 +91,8 @@ export default function PeoplePage() {
             </select>
           </div>
           {message && <p style={{ margin: 0 }}>{message}</p>}
-          <button className="btn btn-primary" type="submit">
-            Grant access
+          <button className="btn btn-primary" type="submit" disabled={submitting}>
+            {submitting ? "Granting…" : "Grant access"}
           </button>
         </form>
 

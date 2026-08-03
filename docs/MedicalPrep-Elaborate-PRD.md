@@ -6,10 +6,11 @@
 | --- | --- |
 | **Product name** | MedicalPrep |
 | **Document type** | Elaborate Product Requirements Document (PRD) |
-| **Version** | 2.0 |
-| **Status** | Draft — for founder / advisor review |
+| **Version** | 2.1 |
+| **Status** | Draft — for founder / advisor review · aligned to working prototype |
 | **Date** | 2026-08-02 |
 | **Companion summary** | [PRD-therapeutic-drug-monitoring.md](./PRD-therapeutic-drug-monitoring.md) (v1.1 condensed) |
+| **Deploy notes** | [VERCEL.md](./VERCEL.md) · [FIREBASE-MFA.md](./FIREBASE-MFA.md) |
 | **Geographic focus (MVP)** | United States |
 | **Primary language (MVP)** | English (US); Spanish planned |
 
@@ -23,7 +24,8 @@
 | --- | --- | --- |
 | 1.0 | 2026-08-01 | Initial consumer TDM PRD |
 | 1.1 | 2026-08-01 | Agentic AI + clinical trials roadmap |
-| **2.0** | **2026-08-02** | **Elaborate PRD: market, stories, agent specs, UX, data, compliance, trials deep-dive** |
+| 2.0 | 2026-08-02 | Elaborate PRD: market, stories, agent specs, UX, data, compliance, trials deep-dive |
+| **2.1** | **2026-08-02** | **Align to working web prototype: Firebase Auth, Postgres, OpenAI Assistant, demo safety engine, Vercel** |
 
 ### Founder brief (source of truth)
 
@@ -34,6 +36,25 @@ Captured 2026-07-31 — Ajay Krishnan:
 3. **Extend to other applications**, including **clinical trials**.
 
 This document elaborates all three intents into one coherent product strategy and specification.
+
+### Implementation status (prototype — 2026-08-02)
+
+A **working Next.js web app** exists in this repository. It is a **family-caregiver MVP prototype**, not yet a licensed-clinical-content product.
+
+| Area | Prototype today | PRD target (later) |
+| --- | --- | --- |
+| Clients | Responsive web (`/app/*`) | + native / PWA polish |
+| Auth | Firebase Email/Password → app session cookie | MFA, SSO, biometrics |
+| Data | Prisma + **PostgreSQL** (Vercel/Neon for prod; same URL locally) | Same; encrypted object store for uploads |
+| Med / allergy / dose / share | Implemented (CRUD, roles OWNER/CAREGIVER/VIEWER) | RxNorm depth, FHIR import |
+| Safety engine | **Demo** in-app rules + drug catalog (seed data) | Licensed interaction vendor |
+| Agents | Intake / Explain / Prepare via **OpenAI** (`OPENAI_API_KEY`) with human confirm on writes | Eval harness, Watch agent, tool firewall maturity |
+| Explain posture | OpenAI answers using profile meds/allergies/alerts; may add **labeled general educational** interaction context when no coded alert matches; never autonomously changes regimen | Prefer licensed-engine claims; keep refuse-to-dose-change |
+| Visit Packet | Printable HTML/PDF path | Time-limited share links |
+| Hosting | Vercel + env vars (`DATABASE_URL`, `DIRECT_URL`, Firebase, OpenAI) | Same family; BAAs as needed |
+| Sample data | “Grandma Eleanor” demo profile + seeded drug/interaction catalog | Expand golden-task sets |
+
+**Disclaimer in product:** Educational/informational only; not a substitute for a pharmacist or clinician; demo knowledge is not a licensed clinical database.
 
 ### How to use this document
 
@@ -82,7 +103,7 @@ This document elaborates all three intents into one coherent product strategy an
 MedicalPrep is a **consumer medication-safety platform** for households managing **polypharmacy**—especially older adults and the adult children/grandchildren who help them. It combines:
 
 1. A **trusted, living medication record** (prescriptions, OTCs, vitamins, supplements, allergies)  
-2. **Continuous interaction and duplicate-therapy intelligence** from licensed clinical content  
+2. **Continuous interaction and duplicate-therapy intelligence** (demo rules in prototype → **licensed clinical content** at launch)  
 3. **Agentic AI** that does caregiver work: intake from discharge papers, plain-language risk explanation, visit preparation, and ongoing watchfulness  
 4. A **platform foundation** that can later serve **clinical trial** participant support (concomitant meds, protocol flags, adherence signal)—without becoming an EDC/CTMS
 
@@ -570,12 +591,12 @@ Priority: **P0** MVP · **P1** launch+ · **P2** later
 | Rule | Statement |
 | --- | --- |
 | R1 | Agents may **propose** regimen changes; only humans **commit** |
-| R2 | Interaction/allergy **facts** come from licensed engines or user-confirmed data |
-| R3 | LLMs may **orchestrate, extract, summarize, and phrase**—not invent clinical interactions |
+| R2 | Coded interaction/allergy **alerts** come from the safety engine (demo rules today; licensed vendor at launch) or user-confirmed profile data |
+| R3 | LLMs (**OpenAI** in prototype) may **orchestrate, extract, summarize, phrase, and educate**—they must not silently change the regimen |
 | R4 | Tools are **allowlisted** and enforced server-side |
 | R5 | Every agent run is **audited** (tool calls, proposals, decisions, model version) |
-| R6 | If grounding fails, agent **refuses** rather than guesses |
-| R7 | Agents never advise a specific new dose or to stop a drug unilaterally |
+| R6 | For **regimen writes**, if extraction/coding fails, agent marks `needs_review` rather than inventing codes |
+| R7 | Agents never instruct a specific new dose or to stop a drug unilaterally—always route to pharmacist/clinician confirmation |
 
 ### 11.2 Agent catalog
 
@@ -595,7 +616,7 @@ Priority: **P0** MVP · **P1** launch+ · **P2** later
 | `get_allergies` | Read allergies | No |
 | `get_alerts` | Read current engine alerts | No |
 | `propose_med_changes` | Create `MedChangeProposal` set | Proposal only |
-| `run_interaction_check` | Invoke licensed engine | No |
+| `run_interaction_check` | Invoke safety engine (demo rules → licensed later) | No |
 | `draft_visit_packet` | Create editable export draft | No |
 | `notify_caregiver` | Push/email nudge | No |
 | `commit_med_changes` | Apply proposals | **Yes — requires user confirmation token** |
@@ -604,7 +625,9 @@ Priority: **P0** MVP · **P1** launch+ · **P2** later
 
 ### 11.4 Intake agent — detail
 
-**Inputs:** PDF, images, pasted text, optional user hint (“discharge from Mercy 7/28”).  
+**Inputs:** Pasted text (PDF/OCR later); optional user hint.  
+
+**Prototype implementation:** OpenAI extracts structured `add | change | stop` drafts as JSON when `OPENAI_API_KEY` is set; each draft is **re-resolved** against the local drug catalog. Falls back to rule-based line parsing if the LLM call fails.  
 
 **Outputs:** Ordered list of proposals:
 
@@ -616,27 +639,38 @@ evidence: { page/region quote or OCR snippet }
 needs_review: boolean
 ```
 
-**UX:** Side-by-side or stacked “source snippet → proposed row” with Accept / Edit / Reject per row and Accept-all-high-confidence (still confirms).  
+**UX:** “Proposed row” with Accept / Reject per item; **Confirm selected changes** commits with a confirmation token. Nothing is saved until confirm.  
 
 **Failure modes**
 
 | Failure | Behavior |
 | --- | --- |
-| Unreadable scan | Ask for retake; no fake meds |
-| Ambiguous drug | Propose with `needs_review` + alternatives |
+| Unreadable / empty extract | Fall back to rules or ask for clearer text; no silent fake meds |
+| Ambiguous drug | Propose with `needs_review` |
 | Conflict with existing list | Present as change/stop, not silent overwrite |
 
 ### 11.5 Explain agent — detail
 
-**Inputs:** Alert IDs from engine + med list context.  
-**Outputs:** For each alert: What / So what / Now what; pharmacist script; optional “questions to ask.”  
-**Hard constraint:** Every clinical interaction claim must cite `alert_id` from `get_alerts` / `run_interaction_check`. If none, say “No interaction on file for this pair in our safety database” or “Insufficient coded data”—never invent.
+**Inputs:** Caregiver question + profile meds, allergies, and current safety-engine alerts.  
+
+**Prototype implementation:** OpenAI generates a natural-language answer. It should:
+
+1. Prefer / highlight any **matching safety-engine alerts**  
+2. When no coded alert matches, still answer helpfully using **general educational pharmaceutical knowledge**, clearly labeling that part as educational (not a MedicalPrep coded alert)  
+3. Use the active medication list for context  
+4. Never tell the user to start/stop/change a medicine on the agent’s own authority  
+
+**Hard constraints (product):** No autonomous regimen writes. Always end with “educational only / ask pharmacist or clinician.”  
+
+**Launch target:** Prefer licensed-engine citations (`alert_id`) for any firm interaction claim used in marketing or “safety checked” UI states.
 
 ### 11.6 Prepare agent — detail
 
 **Inputs:** Meds, allergies, alerts, recent changes (e.g., 30 days), optional appointment type.  
-**Outputs:** Editable Visit Packet sections + ≤5 questions.  
-**User must** preview/edit before share/export.
+
+**Prototype implementation:** Builds a Visit Packet from live profile data; OpenAI may polish narrative + ≤5 questions when configured.  
+
+**User must** preview/edit before share/export (print / save PDF in prototype).
 
 ### 11.7 Watch agent — detail (P1)
 
@@ -651,12 +685,13 @@ Caregiver message / upload
         ▼
 ┌───────────────────┐
 │ Orchestrator      │  intent → Intake | Explain | Prepare | Watch
+│ (OpenAI + tools)  │
 └─────────┬─────────┘
           │ allowlisted tools
           ▼
 ┌───────────────────┐     ┌─────────────────────┐
-│ Med graph         │────▶│ Licensed interaction│
-│ proposals / reads │     │ + allergy engine    │
+│ Med graph         │────▶│ Safety engine       │
+│ proposals / reads │     │ (demo → licensed)   │
 └───────────────────┘     └─────────────────────┘
           │
           ▼
@@ -670,8 +705,8 @@ Golden tasks reviewed by pharmacist advisor:
 | Suite | Pass bar |
 | --- | --- |
 | Intake extraction accuracy on labeled discharges | Target set with advisor (e.g., critical drug recall) |
-| Explain grounding | **0** ungrounded interaction claims |
-| Refuse dose-change | **100%** refuse |
+| Explain: no unauthorized dose-change instructions | **100%** refuse / redirect |
+| Explain: coded-alert claims match engine when asserted as alerts | High precision |
 | Role respect | Viewer cannot commit intake |
 
 Gate prompt/model changes on suite pass.
@@ -834,41 +869,43 @@ Participant on study drug; caregiver adds OTC decongestant prohibited by protoco
 
 ## 16. Technical architecture
 
-### 16.1 MVP orientation
+### 16.1 MVP orientation (prototype stack)
 
-| Layer | Recommendation |
-| --- | --- |
-| Clients | Responsive web + mobile wrappers **or** RN; optimize Assistant for phone + desktop |
-| API | Authenticated multi-tenant backend |
-| Med safety | Licensed drug knowledge / interaction API |
-| Coding | RxNorm (US MVP) |
-| Agents | Orchestrator + tool router + policy engine |
-| LLM | Hosted API with BAA / short retention where possible |
-| Jobs | Async for OCR/intake; sync path for interaction check |
-| Storage | Encrypted at rest; object store for uploads |
+| Layer | Prototype (shipped) | Launch target |
+| --- | --- | --- |
+| Clients | Next.js App Router responsive web | + PWA / native wrappers |
+| Auth | Firebase Authentication (email/password) → HTTP-only app session (`mp_session`) | MFA ([FIREBASE-MFA.md](./FIREBASE-MFA.md)), SSO |
+| API | Next.js Route Handlers under `/api/*` | Same pattern; rate limits |
+| Persistence | Prisma ORM + **PostgreSQL** | Same; object storage for uploads |
+| Med safety | Seeded demo catalog + interaction rules | Licensed drug knowledge API |
+| Coding | Free-text + optional `drugKey` / RxNorm fields | Stronger RxNorm resolution |
+| Agents | OpenAI Chat Completions (`gpt-4o-mini` default) + server tools | Eval gate; optional BAA provider |
+| Jobs | Sync path for checks/agents (async OCR later) | Queue for OCR/intake |
+| Hosting | Vercel; env: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `NEXT_PUBLIC_FIREBASE_*`, `OPENAI_API_KEY` | Same family |
 
 ### 16.2 Key decisions
 
 | Decision | Choice | Rationale |
 | --- | --- | --- |
-| Interaction engine | Buy/license | Liability, coverage, maintenance |
-| LLM role | Orchestrate + explain | Hallucination control |
+| Interaction engine | Demo now → buy/license for launch | Liability, coverage, maintenance |
+| LLM role | OpenAI for Intake/Explain/Prepare | Caregiver UX; human confirm on writes |
 | Regimen writes | Human confirm token | Safety |
 | Web browse tools | Off in MVP | Uncontrolled claims |
 | Classical lab TDM | Defer | Different product |
 | Trials | Phase 4+ | Protect wedge focus |
+| Local vs prod DB | Postgres for both when deploying to Vercel | Serverless has no durable SQLite disk |
 
 ### 16.3 Graceful degradation
 
 | Dependency down | Behavior |
 | --- | --- |
-| LLM | Manual add + deterministic alerts still work; Assistant unavailable banner |
-| Interaction vendor | Block “fully checked” claims; show stale/unavailable warning; allow list edit |
+| LLM / OpenAI | Fall back to rule-based Intake parsing; Explain/Prepare use deterministic templates; banner if key missing |
+| Interaction vendor / engine | Prototype uses demo rules; at launch: block “fully checked” claims; show stale/unavailable warning; allow list edit |
 | Push notifications | In-app Today still accurate |
 
 ### 16.4 Analytics (privacy-preserving)
 
-Event taxonomy for activation, alerts, agent tasks, exports—avoid sending raw medication names to third-party analytics without review.
+Event taxonomy for activation, alerts, agent tasks, exports—avoid sending raw medication names to third-party analytics without review. Firebase Analytics optional via `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`.
 
 ---
 
@@ -940,7 +977,7 @@ Lead with the grandparents/polypharmacy story; demonstrate discharge → confirm
 | Phase | Timing | Deliverables | Outcome |
 | --- | --- | --- | --- |
 | **0 Discovery** | 2–4 weeks | ≥10 caregiver interviews; pharmacist advisor; vendor shortlists (interaction + LLM); regulatory claims memo | Go / no-go on MVP shape |
-| **1 MVP** | 8–12 weeks | Med list, allergies, engine, severity UX, sharing, PDF, reminders, Intake/Explain/Prepare | Private family beta |
+| **1 MVP** | 8–12 weeks | Med list, allergies, engine, severity UX, sharing, PDF, reminders, Intake/Explain/Prepare | Private family beta — **web prototype exists (2026-08)** |
 | **2 Trust** | +6–10 weeks | Watch agent, OCR, missed-dose alerts, Spanish, adherence summaries, emergency card, eval in CI | Public launch readiness |
 | **3 Continuity** | Ongoing | FHIR/pharmacy import, structured export, partners | Less manual entry |
 | **4 Trials** | After consumer PMF signals | Enrollment link, concomitant export, rulesets, Trial prep agent, site pilot | Second application |
@@ -1077,4 +1114,4 @@ Lead with the grandparents/polypharmacy story; demonstrate discharge → confirm
 
 ---
 
-*Living document. Interaction severity, vendors, agent/LLM posture, and all public claims (including AI) require licensed clinical content partners and counsel before launch marketing.*
+*Living document (v2.1). Interaction severity, vendors, agent/LLM posture, and all public claims (including AI) require licensed clinical content partners and counsel before launch marketing. The repository prototype uses a **demo** safety catalog and OpenAI; do not market it as licensed clinical decision support.*

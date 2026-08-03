@@ -1,5 +1,6 @@
 import { prisma } from "../prisma";
 import { runExplainAgent } from "./explain";
+import { chatCompletion, isOpenAIConfigured } from "../openai";
 import { subDays } from "date-fns";
 
 export async function runPrepareAgent(profileId: string, appointmentHint?: string) {
@@ -24,7 +25,7 @@ export async function runPrepareAgent(profileId: string, appointmentHint?: strin
   const serious = explain.alerts.filter((a) => a.severity === "Serious");
   const caution = explain.alerts.filter((a) => a.severity === "Caution");
 
-  const questions = [
+  let questions = [
     serious[0]
       ? `Can you review this Serious alert with us: ${serious[0].title}?`
       : "Can you review our full home medication list including OTCs and supplements?",
@@ -38,7 +39,7 @@ export async function runPrepareAgent(profileId: string, appointmentHint?: strin
     "Please confirm we are not missing OTCs, vitamins, or herbals that matter for interactions.",
   ].slice(0, 5);
 
-  const narrative = [
+  let narrative = [
     `Visit Packet for ${profile.displayName}`,
     appointmentHint ? `Appointment context: ${appointmentHint}` : null,
     "",
@@ -49,6 +50,64 @@ export async function runPrepareAgent(profileId: string, appointmentHint?: strin
   ]
     .filter((x) => x !== null)
     .join("\n");
+
+  const toolCalls: unknown[] = [
+    { tool: "get_profile_meds" },
+    { tool: "get_allergies" },
+    { tool: "get_alerts" },
+    { tool: "draft_visit_packet" },
+  ];
+  let model = explain.model || "rule-based-v1";
+
+  if (isOpenAIConfigured()) {
+    try {
+      const llm = await chatCompletion({
+        temperature: 0.3,
+        json: true,
+        messages: [
+          {
+            role: "system",
+            content: [
+              "You help family caregivers prepare for a clinic or pharmacy visit.",
+              'Return JSON: {"narrative":"short caregiver-facing intro","questions":["up to 5 practical questions"]}',
+              "Use ONLY the provided meds, allergies, and alerts. Do not invent clinical facts.",
+              "Remind that this is not medical advice.",
+            ].join(" "),
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              profileName: profile.displayName,
+              appointmentHint: appointmentHint || null,
+              meds: meds.map((m) => ({
+                name: m.displayName,
+                dose: m.dose,
+                frequency: m.frequency,
+              })),
+              allergies: allergies.map((a) => a.substance),
+              alerts: explain.alerts,
+              seedQuestions: questions,
+            }),
+          },
+        ],
+      });
+      const parsed = JSON.parse(llm.text) as {
+        narrative?: string;
+        questions?: string[];
+      };
+      if (parsed.narrative?.trim()) narrative = parsed.narrative.trim();
+      if (Array.isArray(parsed.questions) && parsed.questions.length) {
+        questions = parsed.questions.map(String).slice(0, 5);
+      }
+      model = llm.model;
+      toolCalls.push({ tool: "openai_prepare", model: llm.model });
+    } catch (e) {
+      toolCalls.push({
+        tool: "openai_prepare_failed",
+        error: e instanceof Error ? e.message : "unknown",
+      });
+    }
+  }
 
   const packet = {
     profileName: profile.displayName,
@@ -86,13 +145,5 @@ export async function runPrepareAgent(profileId: string, appointmentHint?: strin
     narrative,
   };
 
-  return {
-    packet,
-    toolCalls: [
-      { tool: "get_profile_meds" },
-      { tool: "get_allergies" },
-      { tool: "get_alerts" },
-      { tool: "draft_visit_packet" },
-    ],
-  };
+  return { packet, toolCalls, model };
 }
