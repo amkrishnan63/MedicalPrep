@@ -14,54 +14,65 @@ const links = [
   { href: "/app/people", label: "People", match: "/app/people" },
 ];
 
-export function AppNav({
-  userName,
-  profileName,
-}: {
-  userName: string;
-  profileName?: string;
-}) {
+type ProfileOption = {
+  id: string;
+  displayName: string;
+};
+
+export function AppNav({ userName }: { userName: string; profileName?: string }) {
   const pathname = usePathname();
   const search = useSearchParams();
   const router = useRouter();
   const queryProfileId = search.get("profileId");
   const [profileId, setProfileId] = useState<string | null>(queryProfileId);
-  const [resolvedName, setResolvedName] = useState<string | undefined>(profileName);
+  const [profiles, setProfiles] = useState<ProfileOption[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function ensureProfile() {
-      if (queryProfileId) {
-        setProfileId(queryProfileId);
-        return;
-      }
+    async function loadProfiles() {
       const res = await fetch("/api/profiles");
       if (!res.ok || cancelled) return;
-      const data = await res.json();
-      const first = data.profiles?.[0];
-      if (!first || cancelled) return;
-      setProfileId(first.id);
-      setResolvedName(first.displayName);
-      // Keep Home URL shareable with an active profile when one exists
-      if (pathname === "/app") {
-        router.replace(`/app?profileId=${first.id}`);
+      const data = (await res.json()) as { profiles: ProfileOption[] };
+      const list = data.profiles ?? [];
+      if (cancelled) return;
+      setProfiles(list);
+
+      const selected =
+        (queryProfileId && list.find((p) => p.id === queryProfileId)) || list[0] || null;
+
+      if (!selected) {
+        setProfileId(null);
+        return;
+      }
+
+      setProfileId(selected.id);
+
+      if (!queryProfileId && pathname.startsWith("/app")) {
+        const params = new URLSearchParams(search.toString());
+        params.set("profileId", selected.id);
+        router.replace(`${pathname}?${params.toString()}`);
       }
     }
 
-    void ensureProfile();
+    void loadProfiles();
     return () => {
       cancelled = true;
     };
-  }, [queryProfileId, pathname, router]);
+  }, [queryProfileId, pathname, router, search]);
 
-  function withProfile(href: string) {
-    // Home can work without a query; other sections need a profile
+  function withProfile(href: string, id = profileId) {
     if (href === "/app") {
-      return profileId ? `/app?profileId=${profileId}` : "/app";
+      return id ? `/app?profileId=${id}` : "/app";
     }
-    if (!profileId) return href;
-    return `${href}?profileId=${profileId}`;
+    if (!id) return href;
+    return `${href}?profileId=${id}`;
+  }
+
+  function switchProfile(nextId: string) {
+    setProfileId(nextId);
+    const base = pathname.startsWith("/app") ? pathname : "/app";
+    router.push(withProfile(base, nextId));
   }
 
   async function logout() {
@@ -89,7 +100,7 @@ export function AppNav({
       }}
     >
       <div className="shell" style={{ paddingBottom: "0.85rem", paddingTop: "0.85rem" }}>
-        <div className="row" style={{ justifyContent: "space-between" }}>
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <Link
               href={withProfile("/app")}
@@ -99,15 +110,30 @@ export function AppNav({
               MedicalPrep
             </Link>
             <div className="muted" style={{ fontSize: "0.85rem" }}>
-              {resolvedName
-                ? `Caring for ${resolvedName}`
-                : "Family medication safety"}{" "}
-              · {userName}
+              {userName}
             </div>
           </div>
-          <button className="btn btn-secondary" onClick={logout} type="button">
-            Sign out
-          </button>
+
+          <div className="row" style={{ alignItems: "center", gap: "0.55rem" }}>
+            {profiles.length > 0 && (
+              <select
+                className="select"
+                value={profileId ?? ""}
+                onChange={(e) => switchProfile(e.target.value)}
+                style={{ minWidth: 180, padding: "0.45rem 0.65rem" }}
+                aria-label="Switch household profile"
+              >
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.displayName}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button className="btn btn-secondary" onClick={logout} type="button">
+              Sign out
+            </button>
+          </div>
         </div>
         <nav className="row" style={{ marginTop: "0.75rem" }}>
           {links.map((l) => {

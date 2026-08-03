@@ -65,7 +65,7 @@ export default function SafetyPage() {
         </p>
       </div>
       {alerts.length === 0 ? (
-        <div className="card muted">No open alerts. Keep the list complete, including OTCs.</div>
+        <div className="card muted">No open alerts.</div>
       ) : (
         alerts.map((a) => (
           <AlertCard
